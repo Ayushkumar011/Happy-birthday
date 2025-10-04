@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Birthday - Pop the Balloons!</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background: linear-gradient(to bottom right, #87CEEB, #FFFACD);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            color: #333;
+            text-align: center;
+            -webkit-font-smoothing: antialiased;
+            /* Smoother fonts */
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .game-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 25px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+            padding: 30px;
+            width: 90vw;
+            /* Use viewport width for better scaling */
+            max-width: 900px;
+            height: 95vh;
+            /* Use viewport height */
+            max-height: 700px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            transition: width 0.3s, height 0.3s;
+            /* Smooth transitions on resize */
+        }
+
+        /* Initial Message Styling */
+        .initial-message h1 {
+            font-size: 2.8em;
+            color: #FF6347;
+            margin-bottom: 20px;
+        }
+
+        .initial-message p {
+            font-size: 1.3em;
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        #startButton {
+            background-color: #32CD32;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.8em;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        #startButton:hover {
+            background-color: #228B22;
+            transform: translateY(-3px);
+            box-shadow: 0 9px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        #startButton:active {
+            transform: translateY(1px);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Game Area Styling */
+        .game-area {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24"><path fill="orange" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>') 15 15, auto;
+        }
+
+        .score-board {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 15px;
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #4CAF50;
+            z-index: 10;
+        }
+
+        /* Revealed Message Styling */
+        .revealed-message {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            transform: translateY(-50%);
+            font-size: 3.5em;
+            font-weight: bold;
+            color: #FF4500;
+            white-space: nowrap;
+            z-index: 9;
+            user-select: none;
+            pointer-events: none;
+            letter-spacing: 5px;
+            box-sizing: border-box;
+            padding: 0 10px;
+        }
+
+        .revealed-message span {
+            display: inline-block;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+
+        .revealed-message span.visible {
+            opacity: 1;
+            transform: scale(1);
+            animation: popInChar 0.4s ease-out forwards;
+        }
+
+        /* Balloon Styling */
+        .balloon {
+            position: absolute;
+            width: 80px;
+            height: 100px;
+            background-color: currentColor;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            cursor: pointer;
+            animation: floatUp linear;
+            transform-origin: bottom center;
+            box-shadow: inset -5px -5px 0 rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Imposter Balloon Styling */
+        .balloon.imposter {
+            background-color: #6c757d;
+            box-shadow: inset -5px -5px 0 rgba(0, 0, 0, 0.4);
+            border-radius: 45% 55% 40% 50% / 60% 55% 45% 40%;
+        }
+
+        .balloon::after {
+            /* The balloon string */
+            content: '';
+            position: absolute;
+            width: 2px;
+            height: 30px;
+            background-color: rgba(0, 0, 0, 0.4);
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 0 0 50% 50%;
+        }
+
+        .balloon::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            transform: translate(-50%, -50%) scale(0);
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.5) 30%, rgba(255, 255, 255, 0) 70%);
+            border-radius: 50%;
+            opacity: 0;
+        }
+
+        .balloon:hover {
+            transform: scale(1.05);
+        }
+
+        .balloon.popped {
+            animation: popOut 0.3s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .balloon.popped::before {
+            animation: burst-effect 0.3s ease-out forwards;
+        }
+
+        /* Final Message Styling */
+        .final-message {
+            text-align: center;
+            animation: fadeIn 1s ease-out forwards;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .personal-photo {
+            width: 100%;
+            max-width: 200px;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            /* Make it a square */
+            border-radius: 15px;
+            margin: 20px auto;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            object-fit: cover;
+        }
+
+        .final-message h2 {
+            font-size: 3.5em;
+            color: #FF1493;
+            margin-bottom: 15px;
+            /* Reduced margin */
+            margin-top: 0;
+            animation: bounceIn 1s ease-out;
+        }
+
+        .final-message .personal-note {
+            font-size: 1.4em;
+            color: #444;
+            line-height: 1.6;
+            max-width: 700px;
+            margin: 0 auto 20px auto;
+        }
+
+        .final-message .signature {
+            font-size: 1.1em;
+            color: #777;
+            font-style: italic;
+            margin-top: 15px;
+        }
+
+        #restartButton {
+            background-color: #FFA500;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.4em;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        #restartButton:hover {
+            background-color: #FF8C00;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Utility Classes */
+        .hidden {
+            display: none;
+        }
+
+        /* Keyframe Animations */
+        @keyframes floatUp {
+            from {
+                transform: translateY(0) rotate(-5deg);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateY(-100vh) rotate(10deg);
+                /* Use viewport height for reliable exit */
+                opacity: 0;
+            }
+        }
+
+        @keyframes popOut {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+        }
+
+        @keyframes burst-effect {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        @keyframes popInChar {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) translateY(10px);
+            }
+
+            80% {
+                transform: scale(1.1) translateY(-5px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes bounceIn {
+
+            0%,
+            20%,
+            40%,
+            60%,
+            80%,
+            100% {
+                transition-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000);
+            }
+
+            0% {
+                opacity: 0;
+                transform: scale3d(0.3, 0.3, 0.3);
+            }
+
+            20% {
+                transform: scale3d(1.1, 1.1, 1.1);
+            }
+
+            40% {
+                transform: scale3d(0.9, 0.9, 0.9);
+            }
+
+            60% {
+                opacity: 1;
+                transform: scale3d(1.03, 1.03, 1.03);
+            }
+
+            80% {
+                transform: scale3d(0.97, 0.97, 0.97);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale3d(1, 1, 1);
+            }
+        }
+
+        /* ==========================================================================
+   Responsive Styles - Tablets and smaller laptops
+   ========================================================================== */
+        @media (max-width: 1024px) {
+            .game-container {
+                max-height: 550px;
+                padding: 25px;
+            }
+
+            .revealed-message {
+                font-size: 3em;
+            }
+        }
+
+
+        /* ==========================================================================
+   Responsive Styles - Tablets
+   ========================================================================== */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 20px;
+                max-height: 500px;
+            }
+
+            .initial-message h1 {
+                font-size: 2em;
+            }
+
+            .initial-message p {
+                font-size: 1em;
+            }
+
+            #startButton {
+                padding: 10px 25px;
+                font-size: 1.4em;
+            }
+
+            .score-board {
+                font-size: 1.1em;
+                top: 15px;
+                left: 15px;
+                padding: 8px 15px;
+            }
+
+            .balloon {
+                width: 60px;
+                height: 75px;
+            }
+
+            .balloon::after {
+                height: 20px;
+                bottom: -15px;
+            }
+
+            .final-message h2 {
+                font-size: 2.5em;
+            }
+
+            .final-message .personal-note {
+                font-size: 1.1em;
+            }
+
+            #restartButton {
+                font-size: 1.2em;
+                padding: 10px 25px;
+            }
+
+            .revealed-message {
+                font-size: 2.2em;
+                letter-spacing: 3px;
+            }
+
+            .personal-photo {
+                max-width: 150px;
+            }
+        }
+
+        /* ==========================================================================
+   Responsive Styles - Mobile Phones
+   ========================================================================== */
+        @media (max-width: 480px) {
+            .game-container {
+                width: 95vw;
+                max-height: none;
+                /* Allow height to be more flexible */
+                height: 90vh;
+                padding: 15px;
+            }
+
+            .initial-message h1 {
+                font-size: 1.6em;
+            }
+
+            #startButton {
+                padding: 12px 28px;
+                font-size: 1.3em;
+            }
+
+            .score-board {
+                font-size: 1em;
+                padding: 5px 10px;
+                top: 10px;
+                left: 10px;
+            }
+
+            .balloon {
+                width: 50px;
+                height: 65px;
+            }
+
+            .revealed-message {
+                font-size: 1.5em;
+                letter-spacing: 2px;
+            }
+
+            .final-message h2 {
+                font-size: 2em;
+                margin-bottom: 10px;
+            }
+
+            .final-message .personal-note {
+                font-size: 1em;
+            }
+
+            .personal-photo {
+                max-width: 120px;
+                margin: 15px auto;
+            }
+
+            #restartButton {
+                font-size: 1.1em;
+                padding: 10px 22px;
+                margin-top: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-container" id="gameContainer">
+        <div class="initial-message" id="initialMessage">
+            <h1>Pop the balloons to reveal your birthday wish!</h1>
+            <p>Click or tap on the balloons as they float by.</p>
+            <button id="startButton">Start Game</button>
+        </div>
+
+        <div class="game-area" id="gameArea">
+            <div class="score-board">
+                Letters Left: <span id="balloonsLeft"></span>
+            </div>
+            <div class="revealed-message" id="revealedMessage"></div>
+        </div>
+
+        <div class="final-message hidden" id="finalMessage">
+            <h2>🥳 Happy Birthday, <span id="friendNamePlaceholder">Himanshu</span>! 🥳</h2>
+            <img id="birthdayPhoto" src="Tejaswi.jpg" alt="Birthday Photo" class="personal-photo">
+
+            <p class="personal-note">
+                Wishing you a day as bright and joyful as these popped balloons!
+                Thank you for being such an amazing person.
+                May all your wishes come true!
+            </p>
+            <p class="signature">With love,<br>[Your Name]</p>
+            <button id="restartButton">Play Again?</button>
+        </div>
+    </div>
+
+    <audio id="popSound" src="pop.mp3" preload="auto"></audio>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const friendName = "Himanshu"; // Customize this!
+            const yourName = "Ayush Kumar";       // Customize this!
+
+            const messageToReveal = `Happy Birthday ${friendName}!`;
+
+            const initialMessage = document.getElementById('initialMessage');
+            const startButton = document.getElementById('startButton');
+            const gameArea = document.getElementById('gameArea');
+            const balloonsLeftSpan = document.getElementById('balloonsLeft');
+            const revealedMessageDiv = document.getElementById('revealedMessage');
+            const finalMessage = document.getElementById('finalMessage');
+            const friendNamePlaceholder = document.getElementById('friendNamePlaceholder');
+            const personalNote = document.querySelector('.personal-note');
+            const signature = document.querySelector('.signature');
+            const restartButton = document.getElementById('restartButton');
+            const popSound = document.getElementById('popSound');
+
+            let poppedBalloonsCount = 0;
+            let activeBalloonInterval;
+            let revealedCharacters = [];
+            const balloonColors = ['#ff6b6b', '#feca57', '#ffeaa7', '#55efc4', '#74b9ff', '#a29bfe', '#fd79a8'];
+
+            // Set custom names
+            friendNamePlaceholder.textContent = friendName;
+            personalNote.innerHTML = `Wishing you a day as bright and joyful as these popped balloons!
+                              Thank you for being such an amazing person, ${friendName}.
+                              May all your wishes come true!`;
+            signature.innerHTML = `With love,<br>${yourName}`;
+
+            function initializeMessageCharacters() {
+                revealedMessageDiv.innerHTML = '';
+                revealedCharacters = [];
+                messageToReveal.split('').forEach(char => {
+                    const span = document.createElement('span');
+                    span.innerHTML = char === ' ' ? '&nbsp;' : char;
+                    revealedMessageDiv.appendChild(span);
+                    revealedCharacters.push(span);
+                });
+            }
+
+            const launchConfetti = (originY = 0.8, particleCount = 100, spread = 90, scalar = 1.2) => {
+                confetti({
+                    particleCount: particleCount,
+                    spread: spread,
+                    origin: { x: Math.random(), y: originY },
+                    colors: balloonColors,
+                    scalar: scalar,
+                    gravity: 0.8
+                });
+            };
+
+            const launchMiniBurst = (x, y) => {
+                confetti({
+                    particleCount: 25,
+                    spread: 60,
+                    startVelocity: 30,
+                    origin: { x: x / window.innerWidth, y: y / window.innerHeight },
+                    colors: balloonColors,
+                    scalar: 0.8,
+                    disableForReducedMotion: true
+                });
+            };
+
+
+            function createBalloon() {
+                if (poppedBalloonsCount >= messageToReveal.length && gameArea.querySelectorAll('.balloon').length > 5) {
+                    clearInterval(activeBalloonInterval);
+                    return;
+                }
+
+                const balloon = document.createElement('div');
+                balloon.classList.add('balloon');
+
+                // *** NEW: Imposter Logic ***
+                // 15% chance of spawning an imposter, but only after 3 letters are revealed.
+                const isImposter = Math.random() < 0.15 && poppedBalloonsCount > 3;
+
+                if (isImposter) {
+                    balloon.classList.add('imposter');
+                    balloon.onclick = (event) => handleImposterClick(balloon, event);
+                } else {
+                    // Normal balloon setup
+                    const randomColor = balloonColors[Math.floor(Math.random() * balloonColors.length)];
+                    balloon.style.backgroundColor = randomColor;
+                    balloon.style.color = randomColor;
+                    balloon.onclick = (event) => popBalloon(balloon, event);
+                }
+
+                const gameAreaRect = gameArea.getBoundingClientRect();
+                const startX = Math.random() * (gameAreaRect.width - 80);
+                balloon.style.left = `${startX}px`;
+                balloon.style.bottom = `-120px`;
+
+                const animationDuration = 8 + Math.random() * 6;
+                balloon.style.animationDuration = `${animationDuration}s`;
+                const animationDelay = Math.random() * 5;
+                balloon.style.animationDelay = `${animationDelay}s`;
+
+                gameArea.appendChild(balloon);
+
+                balloon.addEventListener('animationend', (event) => {
+                    if (event.animationName === 'floatUp' && balloon.parentNode === gameArea) {
+                        balloon.remove();
+                    }
+                });
+            }
+
+            // *** NEW: Function to handle imposter clicks ***
+            function handleImposterClick(balloon, event) {
+                if (balloon.classList.contains('popped')) return;
+
+                // Make the imposter pop visually
+                balloon.classList.add('popped');
+                if (popSound) {
+                    popSound.currentTime = 0;
+                    popSound.play().catch(e => console.log("Audio play prevented:", e));
+                }
+                // Give it a burst effect too, so the user knows they clicked it
+                launchMiniBurst(event.clientX, event.clientY);
+                balloon.addEventListener('animationend', (event) => {
+                    if (event.animationName === 'popOut' && balloon.parentNode === gameArea) {
+                        balloon.remove();
+                    }
+                });
+
+                // The Penalty: Hide all revealed characters and reset progress
+                revealedCharacters.forEach(span => {
+                    span.classList.remove('visible');
+                });
+                poppedBalloonsCount = 0;
+                balloonsLeftSpan.textContent = messageToReveal.length;
+            }
+
+
+            function popBalloon(balloon, event) {
+                if (balloon.classList.contains('popped')) return;
+
+                balloon.classList.add('popped');
+                poppedBalloonsCount++;
+                balloonsLeftSpan.textContent = messageToReveal.length - poppedBalloonsCount;
+
+                if (popSound) {
+                    popSound.currentTime = 0;
+                    popSound.play().catch(e => console.log("Audio play prevented:", e));
+                }
+
+                launchMiniBurst(event.clientX, event.clientY);
+                revealNextCharacter();
+
+                balloon.addEventListener('animationend', (event) => {
+                    if (event.animationName === 'popOut' && balloon.parentNode === gameArea) {
+                        balloon.remove();
+                    }
+                });
+
+                if (poppedBalloonsCount >= messageToReveal.length) {
+                    setTimeout(endGame, 800);
+                }
+            }
+
+            function revealNextCharacter() {
+                const charIndex = poppedBalloonsCount - 1;
+                if (charIndex < revealedCharacters.length) {
+                    revealedCharacters[charIndex].classList.add('visible');
+                }
+            }
+
+            function startGame() {
+                initialMessage.classList.add('hidden');
+                gameArea.style.display = 'block';
+                balloonsLeftSpan.textContent = messageToReveal.length;
+                poppedBalloonsCount = 0;
+
+                initializeMessageCharacters();
+
+                gameArea.querySelectorAll('.balloon').forEach(b => b.remove());
+
+                activeBalloonInterval = setInterval(createBalloon, 600);
+
+                for (let i = 0; i < Math.min(messageToReveal.length, 7); i++) {
+                    setTimeout(createBalloon, i * 200);
+                }
+            }
+
+            function endGame() {
+                clearInterval(activeBalloonInterval);
+
+                gameArea.querySelectorAll('.balloon').forEach(balloon => {
+                    balloon.style.transition = 'opacity 0.5s ease-out';
+                    balloon.style.opacity = '0';
+                });
+
+                gameArea.style.transition = 'opacity 0.5s ease-out';
+                gameArea.style.opacity = '0';
+
+                setTimeout(() => {
+                    gameArea.style.display = 'none';
+                    finalMessage.classList.remove('hidden');
+
+                    launchConfetti(0.5, 400, 360, 2);
+                    setTimeout(() => {
+                        launchConfetti(0.7, 300, 270, 1.8);
+                    }, 800);
+                }, 500);
+            }
+
+            function resetGame() {
+                finalMessage.classList.add('hidden');
+                initialMessage.classList.remove('hidden');
+                poppedBalloonsCount = 0;
+                gameArea.style.opacity = '1';
+                balloonsLeftSpan.textContent = messageToReveal.length;
+                gameArea.querySelectorAll('.balloon').forEach(b => b.remove());
+                initializeMessageCharacters();
+            }
+
+            startButton.addEventListener('click', startGame);
+            restartButton.addEventListener('click', resetGame);
+
+            gameArea.style.display = 'none';
+            finalMessage.classList.add('hidden');
+            initializeMessageCharacters();
+        });
+    </script>
+</body>
+
+</html>
